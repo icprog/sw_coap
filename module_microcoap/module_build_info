@@ -13,3 +13,5 @@ OPTIONAL_HEADERS += coap_conf.h
 
 MODULE_XCC_XC_FLAGS = $(XCC_FLAGS) -g -O3
 MODULE_XCC_C_FLAGS = $(XCC_FLAGS) -g -Os
+
+EXCLUDE_FILES = microcoap/main-posix.c microcoap/endpoints.c
