@@ -51,6 +51,12 @@ xtcp_ipconfig_t ipconfig = {
 #define BROADCAST_INTERVAL 600000000
 #define BROADCAST_PORT 15534
 
+// Interface status LED
+out port x0ledA = PORT_LED_0_0 ;
+void ifled (int state) {
+  x0ledA <: state;
+}
+
 /** Simple UDP reflection thread.
  *
  * This thread does two things:
@@ -73,6 +79,7 @@ void udp_reflect(chanend c_xtcp)
                       // middle of sending a response packet
   int broadcast_send_flag = 0; // This flag is set when the thread is in the
                                // middle of sending a broadcast packet
+  int link_state = 0; // This flag is set when the link is up or down
   timer tmr;
   unsigned int time;
 
@@ -108,6 +115,8 @@ void udp_reflect(chanend c_xtcp)
         {
         case XTCP_IFUP:
           printstrln("Interface UP");
+          link_state = 1;
+          ifled(1);
           // When the interface goes up, set up the broadcast connection.
           // This connection will persist while the interface is up
           // and is only used for outgoing broadcast messages
@@ -118,6 +127,8 @@ void udp_reflect(chanend c_xtcp)
           break;
         case XTCP_IFDOWN:
           printstrln("Interface DOWN");
+          link_state = 0;
+          ifled(0);
           // Tidy up and close any connections we have open
           if (responding_connection.id != -1) {
             xtcp_close(c_xtcp, responding_connection);
@@ -229,20 +240,13 @@ void udp_reflect(chanend c_xtcp)
       printstrln("Timer expiry, will attempt to broadcast");
       // A broadcast message can be sent if the connection is established
       // and one is not already being sent on that connection
-      if (broadcast_connection.id != -1 && !broadcast_send_flag)  {
+      if (link_state == 1 && broadcast_connection.id != -1 && !broadcast_send_flag)  {
         printstrln("Sending broadcast message");
         broadcast_len = 100;
         xtcp_init_send(c_xtcp, broadcast_connection);
         broadcast_send_flag = 1;
       } else {
-        if (broadcast_connection.id == -1) {
-          printstrln("No broadcast connection available, attempting to create");
-          xtcp_connect(c_xtcp,
-                       BROADCAST_PORT,
-                       broadcast_addr,
-                       XTCP_PROTOCOL_UDP);
-        } else
-            printstrln("Flags are wrong");
+        printstrln("No broadcast link available");
       }
       tmr :> time;
       break;
@@ -269,7 +273,7 @@ int main(void) {
 			smi_init(smi);
 			eth_phy_config(1, smi);
 			ethernet_server(mii,
-			                null,
+			                smi,
 			                mac_address,
 			                c_mac_rx, 1,
 			                c_mac_tx, 1);
