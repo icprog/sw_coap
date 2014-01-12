@@ -8,11 +8,13 @@
 #include <stdint.h>
 #include "print.h"
 #include "xtcp.h"
+#include "i2c.h"
 #include "ethernet_board_support.h"
 
 #include "xtcp_conf.h"
 
 #include "coapapi.h"
+extern void endpoints_init(void);
 
 // These intializers are taken from the ethernet_board_support.h header for
 // XMOS dev boards. If you are using a different board you will need to
@@ -47,7 +49,7 @@ xtcp_ipconfig_t ipconfig = {
 
 #define TX_BUFFER_SIZE 300
 #define RX_BUFFER_SIZE 300
-#define INCOMING_PORT 15533
+#define INCOMING_PORT 5683
 #define BROADCAST_INTERVAL 600000000
 #define BROADCAST_PORT 15534
 
@@ -104,6 +106,9 @@ void udp_reflect(chanend c_xtcp)
 
   // Instruct server to listen and create new connections on the incoming port
   xtcp_listen(c_xtcp, INCOMING_PORT, XTCP_PROTOCOL_UDP);
+
+  // Initialize the CoAP endpoints
+  endpoints_init();
 
   tmr :> time;
   while (1) {

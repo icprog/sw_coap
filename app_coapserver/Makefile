@@ -9,7 +9,7 @@ TARGET = XC-2
 APP_NAME = 
 
 # The USED_MODULES variable lists other module used by the application.
-USED_MODULES = module_ethernet_board_support module_xtcp module_microcoap
+USED_MODULES = module_ethernet_board_support module_xtcp module_microcoap module_i2c_master
 
 # The flags passed to xcc when building the application
 # You can also set the following to override flags for a particular language:
