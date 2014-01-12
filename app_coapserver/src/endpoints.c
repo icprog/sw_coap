@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include "coap.h"
@@ -52,20 +53,11 @@ static const coap_endpoint_path_t path_temp = {1, {"temperature"}};
 static int handle_get_temp(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
 {
     signed long temp;
-    unsigned char str[8];
+    char str[12];
     size_t len = 0;
 
     temp = htu21d_temp();
-    if (temp > 0) {
-        if (temp > 10000)
-          str[len++] = temp / 10000 + '0';
-        str[len++] = (temp / 1000 - 10 * (temp / 10000)) + '0';
-        str[len++] = (temp / 100 - 10 * (temp / 1000)) + '0';
-        str[len++] = '.';
-        str[len++] = (temp / 10 - 10 * (temp / 100)) + '0';
-        str[len++] = (temp - 10 * (temp / 10)) + '0';
-        str[len++] = 'C';
-    }
+    len = snprintf(str, 12, "%ld.%2.2ld C", temp / 100, temp - 100 * (temp / 100));
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
 }
 
@@ -73,21 +65,11 @@ static const coap_endpoint_path_t path_humid = {1, {"humidity"}};
 static int handle_get_humid(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
 {
     signed long humid;
-    unsigned char str[4];
+    char str[4];
     size_t len = 0;
 
     humid = htu21d_humid();
-    if (humid > 99) {
-        str[len++] = '1';
-        str[len++] = '0';
-        str[len++] = '0';
-        str[len++] = '%';
-    } else {
-        if (humid > 10)
-          str[len++] = humid / 10 + '0';
-        str[len++] = (humid - 10 * (humid / 10)) + '0';
-        str[len++] = '%';
-    }
+    len = snprintf(str, 4, "%ld%%", humid);
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
 }
 
