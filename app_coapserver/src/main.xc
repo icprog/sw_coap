@@ -45,6 +45,7 @@ xtcp_ipconfig_t ipconfig = {
 };
 
 
+#define TX_BUFFER_SIZE 300
 #define RX_BUFFER_SIZE 300
 #define INCOMING_PORT 15533
 #define BROADCAST_INTERVAL 600000000
@@ -78,7 +79,7 @@ void udp_reflect(chanend c_xtcp)
   // The buffers for incoming data, outgoing responses and outgoing broadcast
   // messages
   char rx_buffer[RX_BUFFER_SIZE];
-  char tx_buffer[RX_BUFFER_SIZE];
+  char tx_buffer[TX_BUFFER_SIZE];
   char broadcast_buffer[RX_BUFFER_SIZE];
 
   int response_len;  // The length of the response the thread is sending
@@ -166,6 +167,7 @@ void udp_reflect(chanend c_xtcp)
           for (int i=0;i<response_len;i++)
             tx_buffer[i] = rx_buffer[i];
 
+          tx_sz = TX_BUFFER_SIZE;
           if(0 != (rc = coap_simple(rx_buffer, response_len, tx_buffer, &tx_sz))) {
               printstr("Error parsing CoAP packet, rc = ");
               printintln(rc);
