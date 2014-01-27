@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <math.h>
 #include "coap.h"
 #include "sensors.h"
 
@@ -57,7 +58,9 @@ static int handle_get_temp(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt
     size_t len = 0;
 
     temp = htu21d_temp();
-    len = snprintf(str, 12, "%ld.%2.2ld C", temp / 100, temp - 100 * (temp / 100));
+    len = snprintf(str, 12, "%ld.%2.2ld  C", temp / 100, temp - 100 * (temp / 100));
+    str[len-3] = 0xc2;
+    str[len-2] = 0xb0;
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
 }
 
@@ -73,6 +76,41 @@ static int handle_get_humid(coap_rw_buffer_t *scratch, const coap_packet_t *inpk
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
 }
 
+static const coap_endpoint_path_t path_comphumid = {2, {"humidity", "compensated"}};
+static int handle_get_comphumid(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
+{
+    const signed short coeff = -15;
+    signed long temp,humid;
+    char str[4];
+    size_t len = 0;
+
+    temp = htu21d_temp();  // Fixed point, *100
+    humid = htu21d_humid() + (25 - temp/100) * coeff / 100;
+    len = snprintf(str, 4, "%ld%%", humid);
+    return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
+}
+
+static const coap_endpoint_path_t path_dewpoint = {2, {"humidity", "dewpoint"}};
+static int handle_get_dewpoint(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
+{
+    signed long temp,humid,ldp;
+    float pp, dewpoint;
+    char str[12];
+    size_t len = 0;
+
+    temp = htu21d_temp();  // Fixed point, *100
+    humid = htu21d_humid();
+
+    pp = pow(10, 8.1332 - 176239.0 / (temp + 23566));
+    dewpoint = -( 1762.39 / (log10(humid * pp / 100) - 8.1332) + 235.66);
+
+    ldp = floor(dewpoint);
+    len = snprintf(str, 12, "%ld.%2.2ld  C", ldp, (signed long)(100 * (dewpoint - ldp)));
+    str[len-3] = 0xc2;
+    str[len-2] = 0xb0;
+    return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
+}
+
 const coap_endpoint_t endpoints[] =
 {
     {COAP_METHOD_GET, handle_get_well_known_core, &path_well_known_core, "ct=40"},
@@ -80,6 +118,8 @@ const coap_endpoint_t endpoints[] =
     {COAP_METHOD_PUT, handle_put_light, &path_light, NULL},
     {COAP_METHOD_GET, handle_get_temp, &path_temp, "ct=0;if=HTU21D;rt=temperature"},
     {COAP_METHOD_GET, handle_get_humid, &path_humid, "ct=0;if=HTU21D;rt=relative-humidity"},
+    {COAP_METHOD_GET, handle_get_comphumid, &path_comphumid, "ct=0;if=HTU21D;rt=compensated-relative-humidity"},
+    {COAP_METHOD_GET, handle_get_dewpoint, &path_dewpoint, "ct=0;if=HTU21D;rt=dew-point"},
     {(coap_method_t)0, NULL, NULL}
 };
 
