@@ -242,7 +242,6 @@ void udp_reflect(chanend c_xtcp)
     // This is the periodic case, it occurs every BROADCAST_INTERVAL
     // timer ticks
     case tmr when timerafter(time + BROADCAST_INTERVAL) :> void:
-      printstrln("Timer expiry, will attempt to broadcast");
       // A broadcast message can be sent if the connection is established
       // and one is not already being sent on that connection
       if (link_state == 1 && broadcast_connection.id != -1 && !broadcast_send_flag)  {
