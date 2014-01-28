@@ -58,7 +58,8 @@ static int handle_get_humid_temp(coap_rw_buffer_t *scratch, const coap_packet_t 
     size_t len = 0;
 
     temp = htu21d_temp();
-    len = snprintf(str, 12, "%ld.%2.2ld  C", temp / 100, temp - 100 * (temp / 100));
+    // FIXME this conversion is only valid if the fractional bit is not signed
+    len = snprintf(str, 12, "%ld.%4.4ldC", temp >> 16, 625*((temp>>12) & 0xF) );  // 4 fractional bits output, but last two will be overwritten
     str[len-3] = 0xc2;
     str[len-2] = 0xb0;
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
@@ -67,41 +68,43 @@ static int handle_get_humid_temp(coap_rw_buffer_t *scratch, const coap_packet_t 
 static const coap_endpoint_path_t path_humid = {1, {"humidity"}};
 static int handle_get_humid(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
 {
-    signed long humid;
-    char str[4];
+    unsigned long humid;
+    char str[7];
     size_t len = 0;
 
     humid = htu21d_humid();
-    len = snprintf(str, 4, "%ld%%", humid);
+    len = snprintf(str, 7, "%lu.%2.2lu%%", humid>>16, 25*((humid>>14) & 0x3) );  // Show two figures after the decimal
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
 }
 
 static const coap_endpoint_path_t path_comphumid = {2, {"humidity", "compensated"}};
 static int handle_get_comphumid(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
 {
-    const signed short coeff = -15;
+    const signed short coeff = -15;  // note: -15 / 100
     signed long temp,humid;
     char str[4];
     size_t len = 0;
 
-    temp = htu21d_temp();  // Fixed point, *100
-    humid = htu21d_humid() + (25 - temp/100) * coeff / 100;
-    len = snprintf(str, 4, "%ld%%", humid);
+    temp = htu21d_temp();
+    humid = htu21d_humid() + ((25<<16) - temp) * coeff / 100;
+    len = snprintf(str, 7, "%lu.%2.2lu%%", humid>>16, 25*((humid>>14) & 0x3) );  // Show two figures after the decimal
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
 }
 
 static const coap_endpoint_path_t path_dewpoint = {2, {"humidity", "dewpoint"}};
 static int handle_get_dewpoint(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
 {
-    signed long temp,humid,ldp;
+    unsigned long humid;
+    signed long temp,ldp;
     float pp, dewpoint;
     char str[12];
     size_t len = 0;
 
-    temp = htu21d_temp();  // Fixed point, *100
-    humid = htu21d_humid();
+    // Fixed point pow and log? TODO, discard the fraction for now
+    temp = htu21d_temp() >> 16;
+    humid = htu21d_humid() >> 16;
 
-    pp = pow(10, 8.1332 - 176239.0 / (temp + 23566));
+    pp = pow(10, 8.1332 - 1762.39 / (temp + 235.66));
     dewpoint = -( 1762.39 / (log10(humid * pp / 100) - 8.1332) + 235.66);
 
     ldp = floor(dewpoint);
@@ -131,7 +134,7 @@ static int handle_get_pres_temp(coap_rw_buffer_t *scratch, const coap_packet_t *
     size_t len = 0;
 
     temp = mpl3115a2_temp();
-    len = snprintf(str, 12, "%hd.%4.4hd  C", temp >> 4, 625 * (temp & 0x0F));
+    len = snprintf(str, 12, "%hd.%4.4hdC", temp >> 4, 625 * (temp & 0x0F));
     str[len-3] = 0xc2;
     str[len-2] = 0xb0;
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);

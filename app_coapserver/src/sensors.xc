@@ -85,20 +85,23 @@ signed long htu21d_temp(void) {
     // Temperature measurement, hold master
     i2c_master_read_reg(HTU21D_ADDR, HTU21D_CMD_TH, data, 3, proto);  // 2 bytes data + 1 byte checksum
     x = (data[0] << 8) + (data[1] & 0xFC);
-    // Fixed precision, 2 significant figures after the decimal
-    return ((1098 * x) >> 12) - 4685;
+    // Q15.16 fixed point
+    // 7 significant bits before the decimal, the remaining after depending on config
+    // The factors 175.72 and 46.85*2^16 have been left shifted 8 bits for precision
+    // FIXME does this right shift correctly handle negative numbers?
+    return (44984 * x - 786012569) >> 8;
 }
 
-signed long htu21d_humid(void) {
+unsigned long htu21d_humid(void) {
     unsigned char data[3];
     unsigned short x;
 
     // Humidity measurement, hold master
     i2c_master_read_reg(HTU21D_ADDR, HTU21D_CMD_HH, data, 3, proto);  // 2 bytes of data + 1 byte checksum
     x = (data[0] << 8) + (data[1] & 0xFC);
-    // Fixed precision, no figures after the decimal
-    // TODO perform temperature compensation
-    return ((125 * x) >> 16) - 6;
+    // Q15.16 fixed point
+    // 7 significant bits before the decimal, the remaining after depending on config
+    return 125 * x - 393216;
 }
 
 void mpl3115a2_init(void) {
