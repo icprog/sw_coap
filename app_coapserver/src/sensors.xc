@@ -83,7 +83,7 @@ signed long htu21d_temp(void) {
     unsigned short x;
 
     // Temperature measurement, hold master
-    i2c_master_read_reg(HTU21D_ADDR, HTU21D_CMD_TH, data, 3, proto);
+    i2c_master_read_reg(HTU21D_ADDR, HTU21D_CMD_TH, data, 3, proto);  // 2 bytes data + 1 byte checksum
     x = (data[0] << 8) + (data[1] & 0xFC);
     // Fixed precision, 2 significant figures after the decimal
     return ((1098 * x) >> 12) - 4685;
@@ -94,7 +94,7 @@ signed long htu21d_humid(void) {
     unsigned short x;
 
     // Humidity measurement, hold master
-    i2c_master_read_reg(HTU21D_ADDR, HTU21D_CMD_HH, data, 3, proto);
+    i2c_master_read_reg(HTU21D_ADDR, HTU21D_CMD_HH, data, 3, proto);  // 2 bytes of data + 1 byte checksum
     x = (data[0] << 8) + (data[1] & 0xFC);
     // Fixed precision, no figures after the decimal
     // TODO perform temperature compensation
