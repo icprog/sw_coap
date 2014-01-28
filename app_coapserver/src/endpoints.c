@@ -50,8 +50,8 @@ static int handle_put_light(coap_rw_buffer_t *scratch, const coap_packet_t *inpk
     }
 }
 
-static const coap_endpoint_path_t path_temp = {1, {"temperature"}};
-static int handle_get_temp(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
+static const coap_endpoint_path_t path_humid_temp = {2, {"humidity", "temperature"}};
+static int handle_get_humid_temp(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
 {
     signed long temp;
     char str[12];
@@ -111,15 +111,43 @@ static int handle_get_dewpoint(coap_rw_buffer_t *scratch, const coap_packet_t *i
     return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
 }
 
+static const coap_endpoint_path_t path_pres = {1, {"pressure"}};
+static int handle_get_pres(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
+{
+    unsigned long pres;
+    char str[14];
+    size_t len = 0;
+
+    pres = mpl3115a2_pres();
+    len = snprintf(str, 14, "%lu.%2.2lu Pa", pres >> 2, 25 * (pres & 0x03));
+    return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
+}
+
+static const coap_endpoint_path_t path_pres_temp = {2, {"pressure", "temperature"}};
+static int handle_get_pres_temp(coap_rw_buffer_t *scratch, const coap_packet_t *inpkt, coap_packet_t *outpkt, uint8_t id_hi, uint8_t id_lo)
+{
+    signed short temp;
+    char str[12];
+    size_t len = 0;
+
+    temp = mpl3115a2_temp();
+    len = snprintf(str, 12, "%hd.%4.4hd  C", temp >> 4, 625 * (temp & 0x0F));
+    str[len-3] = 0xc2;
+    str[len-2] = 0xb0;
+    return coap_make_response(scratch, outpkt, (const uint8_t *)str, len, id_hi, id_lo, &(inpkt->tok), COAP_RSPCODE_CONTENT, COAP_CONTENTTYPE_TEXT_PLAIN);
+}
+
 const coap_endpoint_t endpoints[] =
 {
-    {COAP_METHOD_GET, handle_get_well_known_core, &path_well_known_core, "ct=40"},
+    {COAP_METHOD_GET, handle_get_well_known_core, &path_well_known_core, NULL},
     {COAP_METHOD_GET, handle_get_light, &path_light, "ct=0"},
     {COAP_METHOD_PUT, handle_put_light, &path_light, NULL},
-    {COAP_METHOD_GET, handle_get_temp, &path_temp, "ct=0;if=HTU21D;rt=temperature"},
-    {COAP_METHOD_GET, handle_get_humid, &path_humid, "ct=0;if=HTU21D;rt=relative-humidity"},
-    {COAP_METHOD_GET, handle_get_comphumid, &path_comphumid, "ct=0;if=HTU21D;rt=compensated-relative-humidity"},
-    {COAP_METHOD_GET, handle_get_dewpoint, &path_dewpoint, "ct=0;if=HTU21D;rt=dew-point"},
+    {COAP_METHOD_GET, handle_get_humid, &path_humid, "ct=0;if=HTU21D;rt=relative"},
+    {COAP_METHOD_GET, handle_get_humid_temp, &path_humid_temp, "ct=0;if=HTU21D"},
+    {COAP_METHOD_GET, handle_get_comphumid, &path_comphumid, "ct=0;if=HTU21D;rt=temperature-compensated"},
+    {COAP_METHOD_GET, handle_get_dewpoint, &path_dewpoint, "ct=0;if=HTU21D"},
+    {COAP_METHOD_GET, handle_get_pres, &path_pres, "ct=0;if=MPL3115A2"},
+    {COAP_METHOD_GET, handle_get_pres_temp, &path_pres_temp, "ct=0;if=MPL3115A2"},
     {(coap_method_t)0, NULL, NULL}
 };
 
